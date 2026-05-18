@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
+import static org.firstinspires.ftc.teamcode.base.Components.timer;
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
@@ -23,24 +25,33 @@ public abstract class Pedro {
     public static void createFollower(Pose startingPose){
         follower=Constants.createFollower(Components.getHardwareMap());
         follower.setStartingPose(startingPose);
+        follower.updatePose();
         Drawing.init();
     }
     public static Commands.RunResettingLoop updateCommand(){
         return new Commands.RunResettingLoop(new Commands.InstantCommand(follower::update));
     }
+    public static Commands.RunResettingLoop updatePoseCommand(){
+        return new Commands.RunResettingLoop(new Commands.InstantCommand(follower::updatePose));
+    }
     public static class PedroCommand extends Commands.PathCommand<PathChain>{
         private final boolean holdEnd;
+        private double startTime;
+        private double timeout = Double.POSITIVE_INFINITY;
         public PedroCommand(Function<PathBuilder,PathBuilder> buildPath, boolean holdEnd) {
             super(()->buildPath.apply(follower.pathBuilder()).build());
             this.holdEnd=holdEnd;
         }
+        public PedroCommand setTimeout(double timeout){this.timeout=timeout; return this;}
         @Override
         public boolean followPath(){
             if (isStart()){
+                startTime = timer.time();
                 follower.followPath(getPath(),holdEnd);
+                return true;
             }
             Drawing.drawDebug(follower);
-            return follower.isBusy();
+            return follower.isBusy() && (timer.time()-startTime<timeout);
         }
         @Override
         public void stopProcedure(){
@@ -48,11 +59,11 @@ public abstract class Pedro {
         }
     }
     public static class PedroLinearCommand extends PedroCommand{
-        public PedroLinearCommand(double x, double y, double heading, boolean holdEnd){ //Goes to the position indicated by the inputs
+        public PedroLinearCommand(Pose pose, boolean holdEnd){ //Goes to the position indicated by the inputs
             super(
                     (PathBuilder b)-> b
-                            .addPath(new BezierLine(follower::getPose,new Pose(x,y)))
-                            .setLinearHeadingInterpolation(follower.getPose().getHeading(),heading),
+                            .addPath(new BezierLine(follower.getPose(),pose))
+                            .setLinearHeadingInterpolation(follower.getPose().getHeading(),pose.getHeading()),
                     holdEnd
             );
         }
@@ -62,7 +73,7 @@ public abstract class Pedro {
             super(
                     (PathBuilder b)->{
                             for (int i=0;i<poses.length;i++) {
-                                b.addPath(new BezierLine(follower::getPose, poses[i]));
+                                b.addPath(new BezierLine(follower.getPose(), poses[i]));
                                 if (i==0){
                                     b.setLinearHeadingInterpolation(follower.getPose().getHeading(), poses[i].getHeading());}
                                 else{
@@ -78,7 +89,7 @@ public abstract class Pedro {
         public PedroLinearTransformCommand(double x, double y, double heading, boolean holdEnd){ //Transforms from current position by the given inputs
             super(
                     (PathBuilder b)-> b
-                            .addPath(new BezierLine(follower::getPose,new Pose(follower.getPose().getX()+x,follower.getPose().getY()+y)))
+                            .addPath(new BezierLine(follower.getPose(),new Pose(follower.getPose().getX()+x,follower.getPose().getY()+y)))
                             .setLinearHeadingInterpolation(follower.getPose().getHeading(),follower.getPose().getHeading()+heading),
                     holdEnd
             );
@@ -100,10 +111,10 @@ public abstract class Pedro {
         }
     }
     public static class PedroInstantLinearCommand extends PedroInstantCommand{
-        public PedroInstantLinearCommand(double x, double y, double heading, boolean holdEnd) {
+        public PedroInstantLinearCommand(Pose pose, boolean holdEnd) {
             super((PathBuilder b)-> b
-                            .addPath(new BezierLine(follower::getPose,new Pose(x,y)))
-                            .setLinearHeadingInterpolation(follower.getPose().getHeading(),heading),
+                            .addPath(new BezierLine(follower.getPose(),pose))
+                            .setLinearHeadingInterpolation(follower.getPose().getHeading(),pose.getHeading()),
                     holdEnd
             );
         }
@@ -113,7 +124,7 @@ public abstract class Pedro {
             super(
                     (PathBuilder b)->{
                         for (int i=0;i<poses.length;i++) {
-                            b.addPath(new BezierLine(follower::getPose, poses[i]));
+                            b.addPath(new BezierLine(follower.getPose(), poses[i]));
                             if (i==0){
                                 b.setLinearHeadingInterpolation(follower.getPose().getHeading(), poses[i].getHeading());}
                             else{
@@ -128,7 +139,7 @@ public abstract class Pedro {
     public static class PedroInstantLinearTransformCommand extends PedroInstantCommand{
         public PedroInstantLinearTransformCommand(boolean holdEnd, double x, double y, double heading) {
             super((PathBuilder b)-> b
-                            .addPath(new BezierLine(follower::getPose,new Pose(follower.getPose().getX()+x,follower.getPose().getY()+y)))
+                            .addPath(new BezierLine(follower.getPose(),new Pose(follower.getPose().getX()+x,follower.getPose().getY()+y)))
                             .setLinearHeadingInterpolation(follower.getPose().getHeading(),follower.getPose().getHeading()+heading),
                     holdEnd
             );

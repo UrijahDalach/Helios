@@ -1,13 +1,12 @@
 package org.firstinspires.ftc.teamcode.presets;
 
-import static org.firstinspires.ftc.teamcode.base.Components.actuators;
 import static org.firstinspires.ftc.teamcode.base.Commands.executor;
+import static org.firstinspires.ftc.teamcode.base.Components.actuators;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-import org.firstinspires.ftc.teamcode.base.Components;
-
 import org.firstinspires.ftc.teamcode.base.Commands;
+import org.firstinspires.ftc.teamcode.base.Components;
 
 import java.util.ArrayList;
 import java.util.Objects;
@@ -18,8 +17,8 @@ public abstract class GenericPositionFinder extends LinearOpMode { //Used to fin
     protected double dynamicChangeAmount=0.1;
     private final ArrayList<String> actuatorNames = new ArrayList<>();
     public void updateTelemetry(){
-        Components.telemetryAddLine(actuatorNames.get(selectedActuatorIndex));
-        Components.telemetryAddData("position", Objects.requireNonNull(actuators.get(actuatorNames.get(selectedActuatorIndex))).getCurrentPosition());
+        Components.telemetry.addLine(actuatorNames.get(selectedActuatorIndex));
+        Components.telemetry.addData("position", Objects.requireNonNull(actuators.get(actuatorNames.get(selectedActuatorIndex))).getCurrentPosition());
     }
     public void shiftSelectionRight(){
         if (selectedActuatorIndex<actuatorNames.size()-1){
@@ -39,6 +38,7 @@ public abstract class GenericPositionFinder extends LinearOpMode { //Used to fin
             }
             else{
                 Components.BotMotor motor = Objects.requireNonNull((Components.BotMotor) actuators.get(name));
+                motor.switchControl("controlOff");
                 motor.resetEncoder();
                 motor.setZeroPowerFloat();
                 motor.lockTargetState();

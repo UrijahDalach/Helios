@@ -13,7 +13,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public abstract class Commands { //Command-based system
     public static final CommandExecutor executor=new CommandExecutor(); //This runs Commands
@@ -145,7 +144,7 @@ public abstract class Commands { //Command-based system
         }
     }
 
-    //PRELOADED commandS
+    //PRELOADED commands
     public static class CommandHolder extends Command{ //An command that can run a given command when run. The command it runs can be changed.
         //The idea behind this is that you can build sequences using an CommandHolder, and set, change, or remove the command inside the CommandHolder later on without having to rebuild the entire sequence again.
         private Command command = null;
@@ -238,17 +237,22 @@ public abstract class Commands { //Command-based system
     }
 
     public static class SleepCommand extends Command { //Sleeps for a set time
-        private final double time;
+        private double time;
+        private final Supplier<Double> getTime;
         private double startTime;
+        public SleepCommand(Supplier<Double> getTime) {
+            this.getTime = getTime;
+        }
 
         public SleepCommand(double time) {
-            this.time = time;
+            this.getTime = ()->time;
         }
 
         @Override
         protected boolean runProcedure() {
             if (isStart()) {
                 startTime = timer.time();
+                time = getTime.get();
             }
             return (timer.time() - startTime) < time;
         }
@@ -320,89 +324,83 @@ public abstract class Commands { //Command-based system
         }
     }
     public static class SequentialCommand extends Command{ //Runs commands sequentially
-        private ArrayList<Command> remainingCommands;
-        private final ArrayList<Command> commands;
-        private final ArrayList<Boolean> isStarts;
+        private int index = 0;
+        private final Command[] commands;
 
         public SequentialCommand(Command... commands) {
-            this.commands = new ArrayList<>(Arrays.asList(commands));
-            this.remainingCommands = new ArrayList<>(this.commands);
-            isStarts = new ArrayList<>(commands.length);
-            for (Command command : commands) {
-                isStarts.add(true);
-            }
+            this.commands = commands;
         }
 
         @Override
         public boolean runProcedure() {
             if (isStart()) {
-                remainingCommands = new ArrayList<>(commands);
-                for (int i = 0; i < commands.size(); i++) {
-                    isStarts.set(i,true);
+                index = 0;
+                if (commands.length>0){
+                    commands[index].reset();
                 }
             }
-            if (isStarts.get(commands.size() - remainingCommands.size())) {
-                remainingCommands.get(0).reset();
-                isStarts.set(commands.size() - remainingCommands.size(),false);
+            while (index!=commands.length){
+                commands[index].run();
+                if (commands[index].isFinished()) {
+                    index+=1;
+                    if (index!=commands.length) commands[index].reset();
+                }
+                else break;
             }
-            remainingCommands.get(0).run();
-            if (!remainingCommands.get(0).isBusy()) {
-                remainingCommands.remove(0);
-            }
-            return !remainingCommands.isEmpty();
+            return index!=commands.length;
         }
 
         @Override
         public void stopProcedure() {
-            remainingCommands.get(0).stop();
+            if (index!=commands.length) commands[index].stop();
         }
         public Command getCurrentAction(){
-            if (remainingCommands.isEmpty()){
-                return commands.get(0);
-            }
-            return remainingCommands.get(0);
+            if (isStart()||isFinished()) return null;
+            else if (index== commands.length) return commands[index-1];
+            else return commands[index];
         }
         public int getCurrentActionIndex(){
-            if (remainingCommands.isEmpty()){
-                return 0;
-            }
-            return commands.size()-remainingCommands.size();
+            if (index==commands.length) return index-1;
+            else return index;
         }
     }
 
     public static class ParallelCommand extends Command{ //Runs commands in parallel
-        private ArrayList<Command> remainingCommands;
-        protected final ArrayList<Command> commands;
+        protected final Command[] commands;
+        private final boolean[] commandActive;
         public ParallelCommand(Command... commands) {
-            this.commands = new ArrayList<>(Arrays.asList(commands));
-            this.remainingCommands = new ArrayList<>(this.commands);
+            this.commands = commands;
+            this.commandActive = new boolean[commands.length];
+            Arrays.fill(commandActive,true);
         }
 
         @Override
         public boolean runProcedure() {
             if (isStart()) {
-                remainingCommands = new ArrayList<>(commands);
-                for (Command command : remainingCommands) {
+                Arrays.fill(commandActive,true);
+                for (Command command : commands) {
                     command.reset();
                 }
             }
-            ArrayList<Command> removingCommands = new ArrayList<>();
-            for (Command command:remainingCommands){
-                command.run();
-                if(!command.isBusy()){
-                    removingCommands.add(command);
+            for (int i=0;i<commands.length;i++) {
+                if (commandActive[i]){
+                    commands[i].run();
+                    if (!commands[i].isBusy()){
+                        commandActive[i]=false;
+                    }
                 }
             }
-            for (Command command:removingCommands){
-                remainingCommands.remove(command);
+            boolean anyLeft = false;
+            for (boolean active : commandActive){
+                if (active) {anyLeft = true; break;}
             }
-            return !remainingCommands.isEmpty();
+            return anyLeft;
         }
 
         @Override
         public void stopProcedure() {
-            for (Command command : remainingCommands) {
-                command.stop();
+            for (int i=0;i<commands.length;i++) {
+                if (commandActive[i]) commands[i].stop();
             }
         }
     }
@@ -570,26 +568,31 @@ public abstract class Commands { //Command-based system
     }
 
     public static class PressCommand extends ConditionalCommand { //ConditionalCommand, but all Conditions are converted into button-presses, such that they will not return 'true' two loop-iterations in a row.
-        private final ArrayList<Boolean> isPressed;
+        public final ArrayList<Boolean> wasPressed;
         public PressCommand(IfThen... ConditionalPairs) {
             super(ConditionalPairs);
             commands.clear();
-            isPressed = new ArrayList<>();
+            wasPressed = new ArrayList<>();
             for (int i = 0; i < ConditionalPairs.length; i++) {
                 int finalI = i;
-                isPressed.add(false);
+                wasPressed.add(false);
                 commands.put(
                         () -> {
                             if (ConditionalPairs[finalI].condition.get()) {
-                                if (!isPressed.get(finalI)){
-                                    isPressed.set(finalI,true);
+                                if (!wasPressed.get(finalI)){
+                                    wasPressed.set(finalI,true);
+                                    for (int x=0;x<wasPressed.size();x++){
+                                        if (x!=finalI){
+                                            wasPressed.set(x,false);
+                                        }
+                                    }
                                     return true;
                                 }
                                 else{
                                     return false;
                                 }
                             } else {
-                                isPressed.set(finalI,false);
+                                wasPressed.set(finalI,false);
                                 return false;
                             }
                         },
@@ -1012,11 +1015,6 @@ public abstract class Commands { //Command-based system
             reset(); super.runProcedure();
             return true;
         }
-        public void stopProcedure(){
-            for (Command command : commands){
-                command.stop();
-            }
-        }
     }
     public static class RunLoop extends ParallelCommand{ //Group of commands that runs commands in parallel in a while loop
         public RunLoop(Command...commands){
@@ -1031,17 +1029,13 @@ public abstract class Commands { //Command-based system
             }
             return true;
         }
-        public void stopProcedure(){
-            for (Command command : commands){
-                command.stop();
-            }
-        }
     }
     public static class CommandExecutor { //Executes commands given to it in parallel
         private ArrayList<Command> commands = new ArrayList<>();
         private final ArrayList<Command> commandsToAdd = new ArrayList<>();
         private final ArrayList<Command> commandsToRemove = new ArrayList<>();
         private Runnable writeToTelemetry = ()->{};
+        private boolean clearBulkCache = false;
         private CommandExecutor(){
         }
         public void setCommands(Command...commandGroups){
@@ -1049,6 +1043,9 @@ public abstract class Commands { //Command-based system
             for (Command command:this.commands){
                 command.reset();
             }
+        }
+        public void setClearBulkCache(boolean clearBulkCache){
+            this.clearBulkCache = clearBulkCache;
         }
         public void clearCommands(){
             this.commands.clear();
@@ -1060,25 +1057,23 @@ public abstract class Commands { //Command-based system
             this.writeToTelemetry=procedure;
         }
         public void runOnce(){
+            if (clearBulkCache) Components.clearBulkCache();
             this.commands.addAll(commandsToAdd);
             this.commands.removeAll(commandsToRemove);
             commandsToAdd.clear();
             commandsToRemove.clear();
-            this.commands = commands.stream().filter((Command command)->{command.run(); return command.isBusy();}).collect(Collectors.toCollection(ArrayList::new));
+            for (int i = 0 ; i < commands.size(); i++) {
+                commands.get(i).run();
+            } for (int i = commands.size() - 1; i >= 0; i--) {
+                if (!commands.get(i).isBusy()) commands.remove(i);
+            }
             for (Components.Actuator<?> actuator : actuators.values()) {
-                //This ensures that old targets do not fall outside of any new max or min targets.
-                actuator.setTarget(actuator.getTargetMinusOffset());
-                if (actuator instanceof Components.CRActuator) {
-                    Components.CRActuator<?> castedActuator = ((Components.CRActuator<?>) actuator);
-                    castedActuator.setPower(castedActuator.getPower());
-                }
-                //This ensures that old powers do not fall outside of any new max or min targets.
                 actuator.runControl();
                 actuator.resetNewTarget(); actuator.resetNewActuation();
             }
-            Components.CachedReader.updateResetAllCaches();
             writeToTelemetry.run();
             updateTelemetry();
+            Components.CachedReader.updateResetAllCaches();
         }
         public void runLoop(Supplier<Boolean> condition){
             while (condition.get()){

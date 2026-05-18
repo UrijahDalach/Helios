@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.presets;
 
 import static org.firstinspires.ftc.teamcode.base.Components.timer;
 
-
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 
