@@ -316,38 +316,21 @@ public abstract class Components {
         private Supplier<Double> maxOffsetFunc = ()->(Double.POSITIVE_INFINITY);
         private Supplier<Double> minOffsetFunc = ()->(Double.NEGATIVE_INFINITY);
         //Max and min offsets. They are dynamic functions since the max position for an actuator may not be the same.
-        private final double errorTol; //Error tolerance for when the actuator is commanded to a position
-        private final double defaultMovementTimeout; //Default time waited when an actuator is commanded to a position before ending the  command.
+        private double errorTol = 5; //Error tolerance for when the actuator is commanded to a position
+        private double defaultMovementTimeout = Double.POSITIVE_INFINITY; //Default time waited when an actuator is commanded to a position before ending the  command.
         protected boolean actuationStateUnlocked = true; //If set to false, methods tagged with @Actuate should not have an effect; it locks the actuator in whatever power/position state it's in.
         private boolean targetStateUnlocked = true; //If set to false, the actuator's target cannot change.
         private final HashMap<String,Double> keyPositions = new HashMap<>(); //Stores key positions, like 'transferPosition,' etc. The keys are labels for positions, and the values are the positions themselves. Useful because you only have to adjust the value corresponding to a certain position in one place.
-        private final Supplier<Double> getCurrentPositionRead;
-        private final int currentPosPollingInterval;
+        private Supplier<Double> getCurrentPositionRead = ()->0.0;
+        private int currentPosPollingInterval = 1;
         private Supplier<Double> getCurrentPosition;
         private Runnable resetCurrentPositionCache;
         private final HashMap<String, ControlSystem<? extends Actuator<E>>> controlSystemMap = new HashMap<>();
-        private String currControlFuncKey;
-        private final String defaultControlKey;
+        private String currControlFuncKey = "controlOff";
+        private String defaultControlKey = "controlOff";
         private boolean timeBasedLocalization = false; //Indicates whether the getCurrentPosition method of the actuator calculates the position based on time as opposed to an encoder, which is important to know.
-        @SafeVarargs
-        public Actuator(String actuatorName, Function<E, Double> getCurrentPosition, int currentPosPollingInterval,
-                        double errorTol, double defaultMovementTimeout, String[] controlFuncKeys, ControlSystem<? extends Actuator<E>>... controlFuncs){
-            currentPosPollingInterval=Math.max(0,currentPosPollingInterval);
+        public Actuator(String actuatorName){
             this.name=actuatorName;
-            this.defaultMovementTimeout = defaultMovementTimeout;
-            this.errorTol=errorTol;
-            this.getCurrentPositionRead = ()->getCurrentPosition.apply(device);
-            this.currentPosPollingInterval = currentPosPollingInterval;
-            for (int i=0;i< controlFuncKeys.length;i++){
-                controlSystemMap.put(controlFuncKeys[i],controlFuncs[i]);
-            }
-            controlSystemMap.put("controlOff",new ControlSystem<>());
-            currControlFuncKey="controlOff";
-            if (controlFuncKeys.length>0){
-                defaultControlKey=controlFuncKeys[0];
-            } else{
-                defaultControlKey=currControlFuncKey;
-            }
         }
         void initDevice(){
             this.device = (E) hardwareMap.tryGet(HardwareDevice.class,name);
@@ -359,16 +342,34 @@ public abstract class Components {
             this.getCurrentPosition=reader::cachedRead;
             resetCurrentPositionCache = reader::resetCache;
         }
-        public void setTargetBounds(Supplier<Double> maxTargetFunc, Supplier<Double> minTargetFunc){ //Sets the maximum and minimum target that can be set to the Actuator. They are functions because the maximum and minimum may change depending on other factors.
+        public <Z extends Actuator<E>> Z setTargetBounds(Supplier<Double> maxTargetFunc, Supplier<Double> minTargetFunc){ //Sets the maximum and minimum target that can be set to the Actuator. They are functions because the maximum and minimum may change depending on other factors.
             this.maxTargetFunc = maxTargetFunc;
             this.minTargetFunc = minTargetFunc;
+            return (Z) this;
+        }
+        public <Z extends Actuator<E>> Z setOffsetBoundFuncs(Supplier<Double> maxOffsetFunc,Supplier<Double> minOffsetFunc){ //Sets bounds on the offset that can be set.
+            this.maxOffsetFunc=maxOffsetFunc;
+            this.minOffsetFunc=minOffsetFunc;
+            return (Z) this;
+        }
+        public <Z extends Actuator<E>> Z setGetCurrentPosition(Function<E, Double> getCurrentPosition, int currentPosPollingInterval){this.getCurrentPositionRead = ()->getCurrentPosition.apply(device); currentPosPollingInterval=Math.max(0,currentPosPollingInterval); this.currentPosPollingInterval = currentPosPollingInterval; return (Z) this;}
+        public <Z extends Actuator<E>> Z setErrorTol(double errorTol){ this.errorTol = errorTol; return (Z) this;}
+        public <Z extends Actuator<E>> Z setDefaultMovementTimeout(double defaultMovementTimeout){ this.defaultMovementTimeout = defaultMovementTimeout; return (Z) this;}
+        @SafeVarargs
+        public final <Z extends Actuator<E>> Z setControlSystems(String[] controlFuncKeys, ControlSystem<Z>... controlFuncs){
+            for (ControlSystem<Z> system:controlFuncs){
+                system.registerToActuator((Z) this);
+            }
+            controlSystemMap.clear();
+            controlSystemMap.put("controlOff",new ControlSystem<>());
+            for (int i=0;i< controlFuncKeys.length;i++){
+                controlSystemMap.put(controlFuncKeys[i],controlFuncs[i]);
+            }
+            if (controlFuncKeys.length>0){defaultControlKey=controlFuncKeys[0];}
+            return (Z) this;
         }
         public String getName(){
             return name;
-        }
-        public void setOffsetBoundFuncs(Supplier<Double> maxOffsetFunc,Supplier<Double> minOffsetFunc){ //Sets bounds on the offset that can be set.
-            this.maxOffsetFunc=maxOffsetFunc;
-            this.minOffsetFunc=minOffsetFunc;
         }
         public double getErrorTol(){
             return errorTol;
@@ -612,13 +613,9 @@ public abstract class Components {
         //Max and min power boundaries
         private final HashMap<String,Double> keyPowers = new HashMap<>(); //Stores key powers, like 'intakePower,' etc.
         private double powerCacheThreshold = 0.04;
-        @SafeVarargs
-        public CRActuator(String name, DcMotorSimple.Direction direction, Function<E, Double> getCurrentPosition, int pollingRate, double errorTol, double defaultTimeout, String[] controlFuncKeys, ControlSystem<? extends CRActuator<E>>... controlFuncs) {
-            super(name, getCurrentPosition, pollingRate, errorTol, defaultTimeout,controlFuncKeys,controlFuncs);
+        public CRActuator(String name, DcMotorSimple.Direction direction) {
+            super(name);
             this.direction = direction;
-        }
-        public CRActuator(String name, DcMotorSimple.Direction direction, Function<E, Double> getCurrentPosition) { //For CRActuators that don't set targets and only use setPower, like drivetrain motors.
-            this(name,direction,getCurrentPosition, 1,0,0,new String[]{});
         }
         void initDevice(){
             super.initDevice();
@@ -628,20 +625,22 @@ public abstract class Components {
             this.setTarget(0);
             setPower(0);
         }
-        public void setPowerBounds(Supplier<Double> maxPowerFunc, Supplier<Double> minPowerFunc){
+        public <Z extends CRActuator<E>> Z setPowerBounds(Supplier<Double> maxPowerFunc, Supplier<Double> minPowerFunc){
             this.maxPowerFunc=maxPowerFunc;
             this.minPowerFunc=minPowerFunc;
+            return (Z) this;
         }
-        public double getKeyPower(String key){
-            return Objects.requireNonNull(keyPowers.get(key));
-        }
-        public void setKeyPowers(String[] keyPowerKeys, double[] keyPowerValues){
+        public <Z extends CRActuator<E>> Z setKeyPowers(String[] keyPowerKeys, double[] keyPowerValues){
             for (int i=0; i<keyPowerKeys.length; i++){
                 keyPowers.put(keyPowerKeys[i],keyPowerValues[i]);
             }
+            return (Z) this;
         }
-        public void setPowerCacheThreshold(double threshold){
-            this.powerCacheThreshold=threshold;
+        public <Z extends CRActuator<E>> Z setPowerCacheThreshold(double threshold){
+            this.powerCacheThreshold=threshold; return (Z) this;
+        }
+        public double getKeyPower(String key){
+            return Objects.requireNonNull(keyPowers.get(key));
         }
         @Actuate
         public void setPower(double power){
@@ -760,21 +759,8 @@ public abstract class Components {
         private Supplier<Double> minVelocityFunc = ()->Double.NEGATIVE_INFINITY;
         private DcMotor.ZeroPowerBehavior zeroPowerBehavior = DcMotor.ZeroPowerBehavior.BRAKE;
         private DcMotor.RunMode runMode = DcMotor.RunMode.RUN_WITHOUT_ENCODER;
-        @SafeVarargs
-        public BotMotor(String name, DcMotorSimple.Direction direction, Function<DcMotorEx, Double> getCurrentPosition, int currentPosPollingInterval, double errorTol, double defaultTimeout, String[] controlFuncKeys, ControlSystem<BotMotor>... controlFuncs) {
-            super(name,direction,getCurrentPosition, currentPosPollingInterval, errorTol, defaultTimeout,controlFuncKeys,controlFuncs);
-            for (ControlSystem<BotMotor> system:controlFuncs){
-                system.registerToActuator(this);
-            }
-        }
-
-        @SafeVarargs
-        public BotMotor(String name, DcMotorSimple.Direction direction, double errorTol, double defaultTimeout, String[] controlFuncKeys, ControlSystem<BotMotor>... controlFuncs) {
-            this(name, direction, (DcMotorEx motor) -> ((double) motor.getCurrentPosition()), 1, errorTol, defaultTimeout,controlFuncKeys,controlFuncs);
-        }
-
         public BotMotor(String name, DcMotorSimple.Direction direction) {
-            this(name, direction, 0.0, 0.0, new String[]{});
+            super(name, direction);
         }
         void initDevice(){
             super.initDevice();
@@ -786,20 +772,31 @@ public abstract class Components {
                 currentReader = new CachedReader<>(() -> getDevice().getCurrent(CurrentUnit.AMPS), 3,true)::cachedRead;
             }
         }
-        public void setVelocityBounds(Supplier<Double> maxVelocityFunc, Supplier<Double> minVelocityFunc){
+        public BotMotor setVelocityBounds(Supplier<Double> maxVelocityFunc, Supplier<Double> minVelocityFunc){
             this.minVelocityFunc=minVelocityFunc;
             this.maxVelocityFunc=maxVelocityFunc;
+            return this;
         }
-        public double getKeyVelocity(String key){
-            return Objects.requireNonNull(keyVelocities.get(key));
-        }
-        public void setKeyVelocities(String[] keyVelocityKeys, double[] keyVelocityValues){
+        public BotMotor setKeyVelocities(String[] keyVelocityKeys, double[] keyVelocityValues){
             for (int i=0; i<keyVelocityKeys.length; i++){
                 keyVelocities.put(keyVelocityKeys[i],keyVelocityValues[i]);
             }
+            return this;
         }
-        public void setVelocityFilter(Function<BotMotor,Double> velFilter){ //Allows you to set a custom function, like a Kalman filter, to determine the velocity of the motor.
+        public BotMotor setVelocityFilter(Function<BotMotor,Double> velFilter){ //Allows you to set a custom function, like a Kalman filter, to determine the velocity of the motor.
             velocityReader=new CachedReader<>(()->velFilter.apply(this),1)::cachedRead;
+            return this;
+        }
+        public BotMotor setInitialRunMode(DcMotor.RunMode mode){
+            this.runMode = mode;
+            return this;
+        }
+        public BotMotor setInitialZeroPowerBehavior(DcMotor.ZeroPowerBehavior zeroPowerBehavior){
+            this.zeroPowerBehavior = zeroPowerBehavior;
+            return this;
+        }
+        public double getKeyVelocity(String key){
+            return Objects.requireNonNull(keyVelocities.get(key));
         }
         public double getVelocity() { //Get the motor's velocity
             return velocityReader.get();
@@ -813,14 +810,12 @@ public abstract class Components {
         }
 
         public void setZeroPowerFloat() { //Set ZeroPowerBehavior to float
-            zeroPowerBehavior = DcMotor.ZeroPowerBehavior.FLOAT;
             if (!Objects.isNull(getDevice())){
                 getDevice().setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
             }
         }
 
         public void setZeroPowerBrake() {
-            zeroPowerBehavior = DcMotor.ZeroPowerBehavior.BRAKE;
             if (!Objects.isNull(getDevice())){
                 getDevice().setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
             }
@@ -831,7 +826,6 @@ public abstract class Components {
         public boolean isStallResetting() {
             return isStallResetting;
         }
-
         public void setMode(DcMotorEx.RunMode mode) {
             if (!Objects.isNull(getDevice())){
                 getDevice().setMode(mode);
@@ -891,24 +885,17 @@ public abstract class Components {
         private final Servo.Direction direction;
         private double positionCacheThreshold = 0.35;
         private final double initialTarget;
-        @SafeVarargs
-        public BotServo(String name, Servo.Direction direction, Function<Servo, Double> getCurrentPosition, int currentPosPollingInterval, double errorTol, double defaultTimeout, double range, //Degree range that servo is programmed to
-                        double initialTarget, String[] controlFuncKeys, ControlSystem<BotServo>... controlFuncs) {
-            super(name, getCurrentPosition, currentPosPollingInterval, errorTol, defaultTimeout, controlFuncKeys, controlFuncs);
+        public BotServo(String name, Servo.Direction direction, double initialTarget, double range) {
+            super(name);
             this.direction = direction;
             this.range=range;
             this.initialTarget = initialTarget;
             this.setPositionConversion=(Double pos)->pos/range;
-            for (ControlSystem<BotServo> system:controlFuncs){
-                system.registerToActuator(this);
-            }
+            this.setControlSystems(new String[]{"setPos"},new ControlSystem<>(new ServoControl()));
         }
-        public BotServo(String name, Servo.Direction direction, double servoSpeedDPS, double defaultTimeout, double range, double initialTarget) {
-            this(name,direction, new TimeBasedLocalizers.ServoTimeBasedLocalizer(servoSpeedDPS/range,initialTarget/range,range)::getCurrentPosition,1,1.5,defaultTimeout,range, initialTarget, new String[]{"setPos"}, new ControlSystem<>(new ServoControl()));
-            setTimeBasedLocalization(true);
-        }
-        public void setPositionConversion(Function<Double,Double> setPositionConversion){
-            this.setPositionConversion=setPositionConversion;
+        public BotServo(String name, Servo.Direction direction, double initialTarget, double range, double servoSpeed) {
+            this(name,direction,initialTarget,range);
+            this.setGetCurrentPosition(new TimeBasedLocalizers.ServoTimeBasedLocalizer(servoSpeed, initialTarget, range)::getCurrentPosition,1);
         }
         void initDevice(){
             super.initDevice();
@@ -918,6 +905,10 @@ public abstract class Components {
             }
             currCommandedPos = NaN;
             if (!Double.isNaN(initialTarget)) this.setTarget(initialTarget);
+        }
+        public BotServo setPositionConversion(Function<Double,Double> setPositionConversion){
+            this.setPositionConversion=setPositionConversion;
+            return this;
         }
         @Actuate
         public void setPosition(double position){ //Accepts position in degrees by default and sets the servos position to that.
@@ -950,19 +941,12 @@ public abstract class Components {
         }
     }
     public static class CRBotServo extends CRActuator<CRServo>{
-        @SafeVarargs
-        public CRBotServo(String name, DcMotorSimple.Direction direction, Function<CRServo, Double> getCurrentPosition, int pollingRate, double errorTol, double defaultTimeout, String[] controlFuncKeys, ControlSystem<CRBotServo>... controlFuncs) {
-            super(name, direction, getCurrentPosition, pollingRate, errorTol, defaultTimeout,controlFuncKeys,controlFuncs);
-            for (ControlSystem<CRBotServo> system:controlFuncs){
-                system.registerToActuator(this);
-            }
-        }
-        @SafeVarargs
-        public CRBotServo(String name, DcMotorSimple.Direction direction, double servoSpeedDPS, String[] controlFuncKeys, ControlSystem<CRBotServo>... controlFuncs) {
-            this(name, direction, new TimeBasedLocalizers.CRTimeBasedLocalizer<CRServo>(servoSpeedDPS)::getCurrentPosition, 1,0, Double.POSITIVE_INFINITY,controlFuncKeys,controlFuncs);
+        public CRBotServo(String name, DcMotorSimple.Direction direction) {
+            super(name, direction);
         }
         public CRBotServo(String name, DcMotorSimple.Direction direction, double servoSpeedDPS) {
-            this(name, direction, servoSpeedDPS,new String[]{});
+            this(name, direction);
+            this.setGetCurrentPosition(new TimeBasedLocalizers.CRTimeBasedLocalizer<CRServo>(servoSpeedDPS)::getCurrentPosition,1);
         }
     }
 }
