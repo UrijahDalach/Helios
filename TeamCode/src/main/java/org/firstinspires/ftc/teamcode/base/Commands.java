@@ -781,7 +781,23 @@ public abstract class Commands { //Command-based system
             });
         }
     }
-
+    public static class RaceCommand extends Command{
+        private final Command[] commands;
+        public RaceCommand(Command...commands){
+            this.commands=commands;
+        }
+        @Override
+        protected boolean runProcedure() {
+            if (isStart()) for (Command command : commands) command.reset();
+            boolean anyDone = false;
+            for (Command command : commands) {
+                command.run();
+                if (command.isFinished()) anyDone = true;
+            }
+            if (anyDone) for (Command command : commands) command.stop();
+            return !anyDone;
+        }
+    }
     public abstract static class PathCommand<E> extends Command { //Command for autonomous pathing. Must be subclassed to create an implementation for a specific autonomous library. Parameterized to the actual path object it is based off of.
         private final Supplier<E> buildPath;
         public static boolean buildPathOnInit=false; //A subclass should set this to true if it can construct the path on construction instead of right before the command is run
