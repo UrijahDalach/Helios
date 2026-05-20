@@ -107,77 +107,10 @@ public abstract class PresetControl { //Holds control functions that actuators c
         public void setDerivativeStartThreshold(double derivativeStartThreshold){this.derivativeStartThreshold = derivativeStartThreshold;}
         public void setClearIntegralWindup(boolean clearIntegralWindup){this.clearIntegralWindup = clearIntegralWindup;}
     }
-    public static class BreakServo extends ControlFunc<CRActuator<?>>{
-        private final double threshold;
-        public BreakServo(double threshold){
-            this.threshold = threshold;
-        }
-
-        @Override
-        public void runProcedure() {
-            if (Math.abs(system.getInstantReference("targetPosition")-parentActuator.getCurrentPosition())<threshold){
-                system.setOutput(0);
-            }
-        }
-    }
-    public static class PositionPID extends ControlFunc<CRActuator<?>>{ //Position PID controller for CRActuators
+    public static class PID extends ControlFunc<CRActuator<?>>{ //PID controller for CRActuators
         private final GenericPID PID;
-        private final Function<CRActuator<?>,Double> getPosition;
-        private final boolean clearIntegral;
-        public PositionPID(Function<CRActuator<?>,Double> getPosition, double kP, double kI, double kD, boolean clearIntegral){
-            this.getPosition = getPosition;
-            this.PID=new GenericPID(kP,kI,kD);
-            this.clearIntegral = clearIntegral;
-        }
-        public PositionPID(double kP, double kI, double kD){
-            this.getPosition = CRActuator::getCurrentPosition;
-            this.PID=new GenericPID(kP,kI,kD);
-            this.clearIntegral = true;
-        }
-        public PositionPID(double kP, double kI, double kD, boolean clearIntegral){
-            this.getPosition = CRActuator::getCurrentPosition;
-            this.PID=new GenericPID(kP,kI,kD);
-            this.clearIntegral = clearIntegral;
-        }
-        @Override
-        public void runProcedure(){
-            if (system.isStart()){
-                PID.clearIntegral();
-                PID.clearFivePointStencil();
-            }
-            if (system.isNewReference("targetPosition") && clearIntegral){
-                PID.clearIntegral();
-            }
-            double output=PID.getPIDOutput(system.getInstantReference("targetPosition"), getPosition.apply(parentActuator));
-            system.setOutput(output);
-        }
-        public void clearIntegral(){
-            PID.clearIntegral();
-        }
-        public void setPIDCoefficients(double kP, double kI, double kD){
-            PID.setPIDCoefficients(kP,kI,kD);
-        }
-        public PositionPID setIntegralStartThreshold(double integralStartThreshold){PID.setIntegralStartThreshold(integralStartThreshold); return this;}
-        public PositionPID setDerivativeStartThreshold(double derivativeStartThreshold){PID.setDerivativeStartThreshold(derivativeStartThreshold); return this;}
-        public PositionPID setClearIntegralWindup(boolean clearIntegralWindup){PID.setClearIntegralWindup(clearIntegralWindup); return this;}
-    }
-    public static class VelocityPID extends ControlFunc<BotMotor>{ //Position PIDF controller for CRActuators
-        private final GenericPID PID;
-        private final Function<BotMotor,Double> getVelocity;
-        private final boolean clearIntegral;
-        public VelocityPID(boolean clearIntegral,Function<BotMotor,Double> getVelocity, double kP, double kI, double kD){
-            this.clearIntegral=clearIntegral;
-            this.getVelocity = getVelocity;
-            this.PID=new GenericPID(kP,kI,kD);
-        }
-        public VelocityPID(Function<BotMotor,Double> getVelocity, double kP, double kI, double kD){
-            this.clearIntegral = true;
-            this.getVelocity = getVelocity;
-            this.PID=new GenericPID(kP,kI,kD);
-        }
-        public VelocityPID(double kP, double kI, double kD){
-            this.clearIntegral=true;
-            this.getVelocity = BotMotor::getVelocity;
+        private boolean clearIntegral = true;
+        public PID(double kP, double kI, double kD){
             this.PID=new GenericPID(kP,kI,kD);
         }
         @Override
@@ -186,10 +119,10 @@ public abstract class PresetControl { //Holds control functions that actuators c
                 PID.clearIntegral();
                 PID.clearFivePointStencil();
             }
-            if (system.isNewReference("targetVelocity")&&clearIntegral){
+            if (system.isNewReference() && clearIntegral){
                 PID.clearIntegral();
             }
-            double output=PID.getPIDOutput(system.getInstantReference("targetVelocity"), getVelocity.apply(parentActuator));
+            double output=PID.getPIDOutput(system.getInstantReference(), system.getCurrentState());
             system.setOutput(output);
         }
         public void clearIntegral(){
@@ -198,40 +131,39 @@ public abstract class PresetControl { //Holds control functions that actuators c
         public void setPIDCoefficients(double kP, double kI, double kD){
             PID.setPIDCoefficients(kP,kI,kD);
         }
-        public VelocityPID setIntegralStartThreshold(double integralStartThreshold){PID.setIntegralStartThreshold(integralStartThreshold); return this;}
-        public VelocityPID setDerivativeStartThreshold(double derivativeStartThreshold){PID.setDerivativeStartThreshold(derivativeStartThreshold); return this;}
-        public VelocityPID setClearIntegralWindup(boolean clearIntegralWindup){PID.setClearIntegralWindup(clearIntegralWindup); return this;}
+        public PresetControl.PID setIntegralStartThreshold(double integralStartThreshold){PID.setIntegralStartThreshold(integralStartThreshold); return this;}
+        public PresetControl.PID setDerivativeStartThreshold(double derivativeStartThreshold){PID.setDerivativeStartThreshold(derivativeStartThreshold); return this;}
+        public PresetControl.PID setClearIntegralWindup(boolean clearIntegralWindup){PID.setClearIntegralWindup(clearIntegralWindup); return this;}
+        public PresetControl.PID setClearIntegral(boolean clearIntegral){this.clearIntegral = clearIntegral; return this;}
     }
-    public static class PositionLowerLimit extends ControlFunc<CRActuator<?>>{
+    public static class LowerLimit extends ControlFunc<CRActuator<?>>{
         private final double threshold;
         private final Function<Double,Double> limit;
-        public PositionLowerLimit(double threshold, Function<Double,Double> limit){
+        public LowerLimit(double threshold, Function<Double,Double> limit){
             this.threshold = threshold;
             this.limit = limit;
         }
-        public PositionLowerLimit(double threshold, double limit){
+        public LowerLimit(double threshold, double limit){
             this(threshold, (pos)->limit);
         }
         @Override
         public void runProcedure() {
-            if (!(Math.abs(system.getInstantReference("targetPosition") - parentActuator.getCurrentPosition())<threshold)){
-                double limitNum = Math.abs(this.limit.apply(parentActuator.getCurrentPosition()));
+            if (!(Math.abs(system.getInstantReference() - system.getCurrentState())<threshold)){
+                double limitNum = Math.abs(this.limit.apply(system.getCurrentState()));
                 double absOutput = Math.abs(system.getOutput());
                 double output = Math.max(limitNum,absOutput);
-                system.setOutput(output*Math.signum(system.getInstantReference("targetPosition") - parentActuator.getCurrentPosition()));
+                system.setOutput(output*Math.signum(system.getInstantReference() - system.getCurrentState()));
             }
         }
     }
     public static class BasicFeedforward extends ControlFunc<CRActuator<?>>{
         private final double kF;
-        private final String reference;
-        public BasicFeedforward(double kF, String reference){
+        public BasicFeedforward(double kF){
             this.kF = kF;
-            this.reference = reference;
         }
         @Override
         public void runProcedure() {
-            system.setOutput(system.getOutput()+kF*system.getInstantReference(reference));
+            system.setOutput(system.getOutput()+kF*system.getInstantReference());
         }
     }
     public static class ElevatorFeedforward extends ControlFunc<CRActuator<?>>{
@@ -255,7 +187,7 @@ public abstract class PresetControl { //Holds control functions that actuators c
         }
         @Override
         public void runProcedure() {
-            system.setOutput(kF*Math.cos(system.getOutput()*referenceToRad+angleAtZero));
+            system.setOutput(system.getOutput()+kF*Math.cos(system.getInstantReference()*referenceToRad+angleAtZero));
         }
     }
     public static class CustomFeedforward extends ControlFunc<CRActuator<?>>{
@@ -308,15 +240,15 @@ public abstract class PresetControl { //Holds control functions that actuators c
         }
         @Override
         public void runProcedure() {
-            if (system.isNewReference("targetPosition")||newParams||system.isStart()){
+            if (system.isNewReference()||newParams||system.isStart()){
                 if (system.isStart()){
                     instantTarget=parentActuator.getCurrentPosition();
                     lastLoopTime=timer.time();
                 }
                 newParams=false;
-                createMotionProfile(system.getReference("targetPosition"));
+                createMotionProfile(parentActuator.getTarget());
             }
-            system.setInstantReference("targetPosition", runMotionProfileOnce());
+            system.setInstantReference(runMotionProfileOnce());
         }
         public void createMotionProfile(double target){
             elapsedTime=0;
@@ -430,13 +362,13 @@ public abstract class PresetControl { //Holds control functions that actuators c
     public static class ServoControl extends ControlFunc<BotServo>{ //Control function to get servos to their targets by calling setPosition. Automatically given to BotServos depending on the constructor you call.
         @Override
         public void runProcedure() {
-            system.setOutput(system.getInstantReference("targetPosition"));
+            system.setOutput(system.getInstantReference());
         }
     }
     public static class SetVelocity extends ControlFunc<BotMotor>{
         @Override
         public void runProcedure() {
-            system.setOutput(system.getInstantReference("targetVelocity"));
+            system.setOutput(system.getInstantReference());
         }
     }
     public static class CRBangBangControl extends ControlFunc<CRActuator<?>>{ //Likely will be used to get CRServos to their targets if they have no encoders with them. Sets a positive or negative power to the servo depending on where it is relative to the target. May create oscillations
@@ -449,9 +381,9 @@ public abstract class PresetControl { //Holds control functions that actuators c
         }
         @Override
         public void runProcedure() {
-            double currentPosition = parentActuator.getCurrentPosition();
-            if (Math.abs(system.getInstantReference("targetPosition")-currentPosition)>parentActuator.getErrorTol()){
-                system.setOutput(system.getOutput()+ powerFunc.get()*Math.signum(system.getInstantReference("targetPosition")-currentPosition));
+            double currentState = system.getCurrentState();
+            if (Math.abs(system.getInstantReference()-currentState)>parentActuator.getErrorTol()){
+                system.setOutput(system.getOutput()+ powerFunc.get()*Math.signum(system.getInstantReference()-currentState));
             }
         }
     }

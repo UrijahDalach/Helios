@@ -172,35 +172,26 @@ public abstract class Components {
     public static class ControlSystem<E extends Actuator<?>>{ //Holds control functions, as well as the necessary plant reference values and the function by which the actuator actuates
         private E parentActuator;
         private boolean isStart=true; //Indicates if the control system has just started running
-        private final HashMap<String,Supplier<Double>> globalReferences=new HashMap<>();
-        private final HashMap<String,Double> storedGlobalReferences=new HashMap<>();
-        private final HashMap<String,Boolean> isNewGlobalReferences=new HashMap<>();
-        private final HashMap<String,Double> instantReferences=new HashMap<>();
+        private double previousGlobalReference;
+        private boolean isNewGlobalReference = false;
+        private double instantReference;
         private Consumer<Double> outputFunc;
         private double output = 0;
         private final List<ControlFunc<? super E>> controlFuncs;
+        private Supplier<Double> getCurrentState;
         @SafeVarargs
-        public ControlSystem(String[] referenceKeys, List<Supplier<Double>> referenceValues, Consumer<Double> outputFunc, ControlFunc<? super E>...controlFuncs) {
+        public ControlSystem(Supplier<Double> getCurrentState, Consumer<Double> outputFunc, ControlFunc<? super E>...controlFuncs) {
             this.outputFunc = outputFunc;
             this.controlFuncs=Arrays.asList(controlFuncs);
-            globalReferences.put("targetPosition",()->parentActuator.getTarget());
-            storedGlobalReferences.put("targetPosition",0.0);
-            isNewGlobalReferences.put("targetPosition",false);
-            instantReferences.put("targetPosition",0.0);
-            for (int i=0;i<referenceKeys.length;i++){ //The default reference, or target, is the position-based target. You can also set a target velocity or a target acceleration. Input a label for your custom reference and a Supplier by which to access it through the constructor.
-                globalReferences.put(referenceKeys[i],referenceValues.get(i));
-                storedGlobalReferences.put(referenceKeys[i],0.0);
-                isNewGlobalReferences.put(referenceKeys[i],false);
-                instantReferences.put(referenceKeys[i],0.0);
-            }
+            this.getCurrentState = getCurrentState;
         }
         @SafeVarargs
-        public ControlSystem(String[] referenceKeys, List<Supplier<Double>> referenceValues, ControlFunc<? super E>...controlFuncs) {
-            this(referenceKeys,referenceValues,null,controlFuncs);
+        public ControlSystem(Supplier<Double> getCurrentState, ControlFunc<? super E>...controlFuncs) {
+            this(getCurrentState,null,controlFuncs);
         }
         @SafeVarargs
         public ControlSystem(ControlFunc<? super E>...controlFuncs) {
-            this(new String[]{}, List.of(),null,controlFuncs);
+            this(null,null,controlFuncs);
         }
         private void registerToActuator(E parentActuator){
             this.parentActuator=parentActuator;
@@ -217,6 +208,10 @@ public abstract class Components {
                     outputFunc = castedActuator::setPosition;
                 }
             }
+            if (Objects.isNull(getCurrentState)) getCurrentState = parentActuator::getCurrentPosition;
+        }
+        public double getCurrentState(){
+            return getCurrentState.get();
         }
         public boolean isStart(){
             return isStart;
@@ -226,10 +221,8 @@ public abstract class Components {
                 return;
             }
             output=0;
-            isNewGlobalReferences.replaceAll((r, v) -> false);
-            for (String label:storedGlobalReferences.keySet()){
-                readReference(label);
-            }
+            isNewGlobalReference = false;
+            setInstantReference(parentActuator.getTarget());
             for (ControlFunc<?> func:controlFuncs){
                 func.runProcedure();
             }
@@ -242,32 +235,11 @@ public abstract class Components {
             }
             isStart=true;
         }
-        public double getReference(String label){ //Return the value of a chosen reference.
-            try{
-                return Objects.requireNonNull(storedGlobalReferences.get(label));
-            }
-            catch (NullPointerException n){
-                throw new NullPointerException("No reference "+label+" exists. Add the reference to the control system.");
-            }
+        public double getInstantReference(){ //Return the value of an instantaneous reference. In systems like motion profiling, this is distinct from the global reference but builds to it over time.
+            return instantReference;
         }
-        private void readReference(String label){
-            double reference = Objects.requireNonNull(globalReferences.get(label)).get();
-            if (reference!=Objects.requireNonNull(storedGlobalReferences.get(label))){
-                isNewGlobalReferences.put(label,true);
-            }
-            storedGlobalReferences.put(label,reference);
-            setInstantReference(label,getReference(label));
-        }
-        public double getInstantReference(String label){ //Return the value of an instantaneous reference. In systems like motion profiling, this is distinct from the global reference but builds to it over time.
-            try{
-                return Objects.requireNonNull(instantReferences.get(label));
-            }
-            catch (NullPointerException n){
-                throw new NullPointerException("No reference "+label+" exists. Add the reference to the control system.");
-            }
-        }
-        public void setInstantReference(String label, double value){
-            instantReferences.put(label,value);
+        public void setInstantReference(double value){
+            instantReference = value;
         }
         public void setOutput(double output){
             this.output=output;
@@ -278,8 +250,8 @@ public abstract class Components {
         public E getParentActuator(){
             return parentActuator;
         }
-        public boolean isNewReference(String label){ //Returns true if the global reference has just changed.
-            return Boolean.TRUE.equals(isNewGlobalReferences.get(label));
+        public boolean isNewReference(){ //Returns true if the global reference has just changed.
+            return isNewGlobalReference;
         }
     }
     public static class SyncedActuators<E extends Actuator<?>>{ //Holds multiple synchronized actuators and allows you to call methods or actions on them in sync.
@@ -420,6 +392,7 @@ public abstract class Components {
         public double getCurrentPosition(){ //Gets the position of a specific part
             return getCurrentPosition.get();
         }
+        public double getCurrentState(){return Objects.requireNonNull(controlSystemMap.get(currControlFuncKey)).getCurrentState();}
         public void setOffset(double offset){ //Set the offset of an actuator. Whenever you set the target position, it will add the offset. Useful if a part skips.
             offset=Math.max(minOffsetFunc.get(),Math.min(maxOffsetFunc.get(),offset));
             if (offset!=this.offset){
@@ -473,7 +446,7 @@ public abstract class Components {
                 group = new SequentialCommand(
                         new InstantCommand(()->setTarget(targetFunc.get())),
                         new SleepUntilTrue(
-                                ()->(Math.abs(getCurrentPosition()-target)<errorTol),
+                                ()->(Math.abs(getCurrentState()-target)<errorTol),
                                 timeout
                         )
                 );
