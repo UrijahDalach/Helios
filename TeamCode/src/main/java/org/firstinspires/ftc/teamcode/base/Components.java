@@ -799,7 +799,7 @@ public abstract class Components {
         public boolean isStallResetting() {
             return isStallResetting;
         }
-        public void setMode(DcMotorEx.RunMode mode) {
+        public void setMode(DcMotor.RunMode mode) {
             if (!Objects.isNull(getDevice())){
                 getDevice().setMode(mode);
             }
