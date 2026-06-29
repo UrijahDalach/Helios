@@ -1,9 +1,12 @@
 package org.firstinspires.ftc.teamcode.robotconfigs;
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.opMode;
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.robot.Robot;
 
 import org.firstinspires.ftc.teamcode.base.Components;
 import org.firstinspires.ftc.teamcode.presets.PresetControl;
@@ -11,7 +14,7 @@ import org.firstinspires.ftc.teamcode.presets.PresetControl;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class Robot implements Components.RobotConfig {
+public class robotConfig implements Components.RobotConfig {
     @Override
 
     public ArrayList<Components.Actuator<?>> getActuators() {
@@ -46,11 +49,11 @@ public class Robot implements Components.RobotConfig {
     public static double TARGET_HIGH   = 430;
     public static double TARGET_MAX    = 630;
 
-    public static double ARM_PICKUP = 0.02;
-    public static double ARM_SCORE  = 0.96;
+    public static double ARM_PICKUP = 5.4;
+    public static double ARM_SCORE  = 259.2;
 
-    public static double WRIST_PICKUP = 0.91;
-    public static double WRIST_SCORE  = 0.2;
+    public static double WRIST_PICKUP = 245.7;
+    public static double WRIST_SCORE  = 54.0;
 
 
     @Override
@@ -59,6 +62,7 @@ public class Robot implements Components.RobotConfig {
         parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.LEFT,
                 RevHubOrientationOnRobot.UsbFacingDirection.UP));
+
         imu.initialize(parameters);
 
         slide1.resetEncoder();
@@ -76,6 +80,7 @@ public class Robot implements Components.RobotConfig {
         String mystring = "Hi Arick";
     }
     public void teleopSpecificInit() {
+        Components.initialize(opMode, this, false, true);
         arm1.setKeyPositions(
                 new String[]{"pickup", "score"},
                 new double[]{ARM_PICKUP, ARM_SCORE}
