@@ -1,6 +1,4 @@
 package org.firstinspires.ftc.teamcode.programs;
-import static org.firstinspires.ftc.teamcode.robotconfigs.robotConfig.imu;
-
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -26,8 +24,6 @@ public class robotTeleOp extends LinearOpMode {
 
             int iterations = 0;
             while (opModeIsActive()) {
-
-
 
                 double y = -gamepad1.left_stick_y;
                 double x = gamepad1.left_stick_x;
@@ -70,40 +66,44 @@ public class robotTeleOp extends LinearOpMode {
                     backLeftPower = 0.5 * backLeftPower;
                     frontRightPower = 0.5 * frontRightPower;
                     backRightPower = 0.5 * backRightPower;
-                } else if (gamepad1.b){ // Low junction
-                    target = TARGET_LOW;
+                }
 
-                }else if (gamepad1.x){ // Mid junction
+                else if (gamepad1.b){ // Low junction
+                    target = TARGET_LOW;
+                }
+
+                else if (gamepad1.x){ // Mid junction
                     target = TARGET_MID;
                     arm1.setTarget(ARM_SCORE);
                     arm2.setTarget(ARM_SCORE);
                     wrist.setTarget(WRIST_SCORE);
 
-                }else if (gamepad1.y){ // High junction
+                }
+
+                else if (gamepad1.y){ // High junction
                     target = TARGET_HIGH;
                     arm1.setTarget(ARM_SCORE);
                     arm2.setTarget(ARM_SCORE);
                     wrist.setTarget(WRIST_SCORE);
                 }
-                if (gamepad1.left_bumper){
-                    if (target < TARGET_MAX){
-                        target += 15;
-                    }
 
-                }else if (gamepad1.right_bumper){
-                    if (target > TARGET_PICKUP){
+                if (gamepad1.left_bumper && target < TARGET_MAX){
+                    target += 15;
+                }
+
+                else if (gamepad1.right_bumper && target > TARGET_PICKUP){
                         target -= 15;
-                    }
                 }
 
                 buttonAPressed = gamepad1.a;
 
                 Commands.executor.runOnce();
 
-                claw.setPosition(1-gamepad1.right_trigger);
+                claw.setTarget(1-gamepad1.right_trigger);
 
                 slide1.setTarget(target);
                 slide2.setTarget(target);
+
                 telemetry.addData("slide1 pos", slide1.getCurrentPosition());
                 telemetry.addData("slide2 pos", slide2.getCurrentPosition());
                 telemetry.addData("iterations:",++iterations);
