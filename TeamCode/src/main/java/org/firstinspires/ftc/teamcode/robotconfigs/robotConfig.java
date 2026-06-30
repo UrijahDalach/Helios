@@ -5,10 +5,10 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
+
 import org.firstinspires.ftc.teamcode.base.Components;
 import org.firstinspires.ftc.teamcode.presets.PresetControl;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -52,8 +52,6 @@ public class robotConfig implements Components.RobotConfig {
     public static double WRIST_SCORE  = 54.0;
     public static double WRIST_PICKUP  = 245.7;
 
-    public static double Kp = 0.015;
-
 
     @Override
     public void generalInit() {
@@ -71,7 +69,6 @@ public class robotConfig implements Components.RobotConfig {
         leftBack.getDevice().setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.getDevice().setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.getDevice().setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
     }
     public void autoSpecificInit() {
         String mystring = "Hi Arick";
@@ -97,4 +94,3 @@ public class robotConfig implements Components.RobotConfig {
         wrist.setTarget(WRIST_PICKUP);
     }
 }
-
