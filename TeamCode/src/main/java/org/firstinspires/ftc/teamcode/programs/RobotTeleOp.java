@@ -44,7 +44,7 @@ public class RobotTeleOp extends LinearOpMode {
         Components.activateActuatorControl();
 
         Commands.executor.setCommands(
-            new Commands.ParallelCommand(
+            new Commands.SequentialCommand(
                 new Commands.FieldCentricMecanumCommand(
                     new Components.BotMotor[] {
                                 leftFront,
