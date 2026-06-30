@@ -79,7 +79,7 @@ public class robotConfig implements Components.RobotConfig {
     public void autoSpecificInit() {
         String mystring = "Hi Arick";
     }
-    public void teleopSpecificInit() {
+    public void TeleOpnit () {
         Components.initialize(opMode, this, false, true);
         arm1.setKeyPositions(
                 new String[]{"pickup", "score"},
