@@ -1,13 +1,10 @@
 package org.firstinspires.ftc.teamcode.robotconfigs;
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.opMode;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.robot.Robot;
-
 import org.firstinspires.ftc.teamcode.base.Components;
 import org.firstinspires.ftc.teamcode.presets.PresetControl;
 
@@ -55,6 +52,8 @@ public class robotConfig implements Components.RobotConfig {
     public static double WRIST_PICKUP = 245.7;
     public static double WRIST_SCORE  = 54.0;
 
+    public static double Kp = 0.015;
+
 
     @Override
     public void generalInit() {
@@ -79,8 +78,8 @@ public class robotConfig implements Components.RobotConfig {
     public void autoSpecificInit() {
         String mystring = "Hi Arick";
     }
-    public void TeleOpnit () {
-        Components.initialize(opMode, this, false, true);
+    @Override
+    public void teleOpSpecificInit () {
         arm1.setKeyPositions(
                 new String[]{"pickup", "score"},
                 new double[]{ARM_PICKUP, ARM_SCORE}
