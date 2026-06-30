@@ -12,7 +12,7 @@ import org.firstinspires.ftc.teamcode.presets.PresetControl;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class robotConfig implements Components.RobotConfig {
+public class RobotConfig implements Components.RobotConfig {
     @Override
 
     public ArrayList<Components.Actuator<?>> getActuators() {

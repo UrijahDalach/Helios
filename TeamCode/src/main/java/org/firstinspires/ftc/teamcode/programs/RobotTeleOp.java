@@ -4,14 +4,14 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import static org.firstinspires.ftc.teamcode.base.Commands.executor;
-import static org.firstinspires.ftc.teamcode.robotconfigs.robotConfig.*;
+import static org.firstinspires.ftc.teamcode.robotconfigs.RobotConfig.*;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.base.Commands;
 import org.firstinspires.ftc.teamcode.base.Components;
-import org.firstinspires.ftc.teamcode.robotconfigs.robotConfig;
+import org.firstinspires.ftc.teamcode.robotconfigs.RobotConfig;
 @TeleOp
-public class robotTeleOp extends LinearOpMode {
-    robotConfig robot = new robotConfig();
+public class RobotTeleOp extends LinearOpMode {
+    RobotConfig robot = new RobotConfig();
     double target = TARGET_PICKUP;
     double frontLeftPower = 0;
     double backLeftPower = 0;
