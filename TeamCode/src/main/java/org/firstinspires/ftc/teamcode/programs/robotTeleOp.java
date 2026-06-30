@@ -40,13 +40,11 @@ public class robotTeleOp extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
 
-        waitForStart();
-
         Components.initialize(this, robot, false, true);
         Components.activateActuatorControl();
 
         Commands.executor.setCommands(
-            new Commands.SequentialCommand(
+            new Commands.ParallelCommand(
                 new Commands.FieldCentricMecanumCommand(
                     new Components.BotMotor[] {
                                 leftFront,
@@ -136,6 +134,7 @@ public class robotTeleOp extends LinearOpMode {
                 ),
                 new Commands.InstantCommand(this::setTargetPositions)
             );
+        waitForStart();
 
         executor.runLoop(this::opModeIsActive);
     }
