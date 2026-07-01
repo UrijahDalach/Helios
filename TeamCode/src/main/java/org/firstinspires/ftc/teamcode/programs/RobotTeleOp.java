@@ -33,8 +33,6 @@ public class RobotTeleOp extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         Components.initialize(this, robot, false, true);
         Components.activateActuatorControl();
-        slide1.setTarget(TARGET_PICKUP);
-        slide2.setTarget(TARGET_PICKUP);
 
         Commands.executor.setCommands(
             new Commands.RunResettingLoop(

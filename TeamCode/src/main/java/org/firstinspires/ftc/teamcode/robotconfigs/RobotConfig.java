@@ -45,8 +45,6 @@ public class RobotConfig implements Components.RobotConfig {
     public static double TARGET_LOW    = 440;
     public static double TARGET_MID    = 150;
     public static double TARGET_HIGH   = 430;
-    public static double TARGET_MAX    = 630;
-
     public static double ARM_PICKUP = 5.4;
     public static double ARM_SCORE  = 259.2;
     public static double WRIST_SCORE  = 54.0;
