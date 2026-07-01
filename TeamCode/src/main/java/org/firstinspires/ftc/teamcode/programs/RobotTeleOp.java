@@ -44,7 +44,7 @@ public class RobotTeleOp extends LinearOpMode {
         Components.activateActuatorControl();
 
         Commands.executor.setCommands(
-            new Commands.SequentialCommand(
+            new Commands.RunResettingLoop(
                 new Commands.FieldCentricMecanumCommand(
                     new Components.BotMotor[] {
                                 leftFront,
@@ -109,19 +109,11 @@ public class RobotTeleOp extends LinearOpMode {
                         })
                     )
                 ),
-                new Commands.PressCommand(
-                    new Commands.IfThen(() -> gamepad1.left_bumper && target < TARGET_MAX,
-                        new Commands.InstantCommand(() -> {
-                            target += 15;
-                        })
-                    )
-                ),
-                new Commands.PressCommand(
-                    new Commands.IfThen(() -> gamepad1.right_bumper && target > TARGET_PICKUP,
-                        new Commands.InstantCommand(() -> {
-                            target -= 15;
-                        })
-                    )
+                Commands.triggeredDynamicCommand(
+                        () -> gamepad1.left_bumper,
+                        () -> gamepad1.right_bumper,
+                        new Commands.InstantCommand(() -> target += 15),
+                        new Commands.InstantCommand(() -> target -= 15)
                 ),
                 new Commands.PressCommand(
                     new Commands.IfThen(() -> gamepad1.options,
