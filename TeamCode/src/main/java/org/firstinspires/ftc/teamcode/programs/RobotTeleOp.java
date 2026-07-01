@@ -29,19 +29,12 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.update();
     }
 
-    public void setTargetPositions () {
-        claw.setTarget(1-gamepad1.right_trigger);
-        slide1.setTarget(target);
-        slide2.setTarget(target);
-
-    }
-
-
     @Override
     public void runOpMode() throws InterruptedException {
-
         Components.initialize(this, robot, false, true);
         Components.activateActuatorControl();
+        slide1.setTarget(TARGET_PICKUP);
+        slide2.setTarget(TARGET_PICKUP);
 
         Commands.executor.setCommands(
             new Commands.RunResettingLoop(
@@ -85,14 +78,16 @@ public class RobotTeleOp extends LinearOpMode {
                 new Commands.PressCommand(
                     new Commands.IfThen(() -> gamepad1.b,
                         new Commands.InstantCommand(() -> {
-                           target = TARGET_LOW;
+                            slide1.setTarget(TARGET_LOW);
+                            slide2.setTarget(TARGET_LOW);
                         })
                     )
                 ),
                 new Commands.PressCommand(
                     new Commands.IfThen(() -> gamepad1.x,
                         new Commands.InstantCommand(() -> {
-                            target = TARGET_MID;
+                            slide1.setTarget(TARGET_MID);
+                            slide2.setTarget(TARGET_MID);
                             arm1.setTarget(ARM_SCORE);
                             arm2.setTarget(ARM_SCORE);
                             wrist.setTarget(WRIST_SCORE);
@@ -102,7 +97,8 @@ public class RobotTeleOp extends LinearOpMode {
                 new Commands.PressCommand(
                     new Commands.IfThen(() -> gamepad1.y,
                         new Commands.InstantCommand(() -> {
-                            target = TARGET_HIGH;
+                            slide1.setTarget(TARGET_HIGH);
+                            slide2.setTarget(TARGET_HIGH);
                             arm1.setTarget(ARM_SCORE);
                             arm2.setTarget(ARM_SCORE);
                             wrist.setTarget(WRIST_SCORE);
@@ -122,9 +118,11 @@ public class RobotTeleOp extends LinearOpMode {
                         })
                     )
                 ),
-                new Commands.InstantCommand(this::telemetryFunction)
-                ),
-                new Commands.InstantCommand(this::setTargetPositions)
+                new Commands.InstantCommand(() -> {
+                    telemetryFunction();
+                    claw.setTarget(1-gamepad1.right_trigger);
+                })
+                )
             );
         waitForStart();
 
