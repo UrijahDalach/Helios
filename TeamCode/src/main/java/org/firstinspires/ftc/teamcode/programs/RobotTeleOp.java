@@ -12,7 +12,6 @@ import org.firstinspires.ftc.teamcode.robotconfigs.RobotConfig;
 @TeleOp
 public class RobotTeleOp extends LinearOpMode {
     RobotConfig robot = new RobotConfig();
-    double target = TARGET_PICKUP;
     double frontLeftPower = 0;
     double backLeftPower = 0;
     double frontRightPower = 0;
@@ -25,7 +24,6 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addData("iterations:",++iterations);
         telemetry.addData("Slide1:",slide1.getCurrentPosition());
         telemetry.addData("Slide2:",slide2.getCurrentPosition());
-        telemetry.addData("Target:",target);
         telemetry.update();
     }
 
@@ -58,7 +56,9 @@ public class RobotTeleOp extends LinearOpMode {
                             ),
                             new Commands.SleepCommand(.7),
                             new Commands.InstantCommand(() -> {
-                                target = 0;
+                                slide1.setTarget(TARGET_PICKUP);
+                                slide2.setTarget(TARGET_PICKUP);
+
                             })
                         )
                     )
@@ -103,29 +103,29 @@ public class RobotTeleOp extends LinearOpMode {
                         })
                     )
                 ),
-                Commands.triggeredDynamicCommand(
-                        () -> gamepad1.left_bumper,
-                        () -> gamepad1.right_bumper,
-                        new Commands.InstantCommand(() -> target += 15),
-                        new Commands.InstantCommand(() -> target -= 15)
+                    slide1.triggeredDynamicTargetCommand(
+                            () -> gamepad1.left_bumper,
+                            () -> gamepad1.right_bumper,
+                            15
+                    ),
+                    slide2.triggeredDynamicTargetCommand(
+                            () -> gamepad1.left_bumper,
+                            () -> gamepad1.right_bumper,
+                            15
+                    )
                 ),
                 new Commands.PressCommand(
                     new Commands.IfThen(() -> gamepad1.options,
-                        new Commands.InstantCommand(() -> {
-                            imu.resetYaw();
-                        })
+                        new Commands.InstantCommand(() -> imu.resetYaw())
                     )
                 ),
                 new Commands.InstantCommand(() -> {
                     telemetryFunction();
                     claw.setTarget(1-gamepad1.right_trigger);
                 })
-                )
             );
         waitForStart();
 
         executor.runLoop(this::opModeIsActive);
     }
-};
-
-
+}
